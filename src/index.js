@@ -48,6 +48,12 @@ app.use('/api/knowledge-base', kbRoutes);
 // Chat routes
 app.use('/api/chat', chatRoutes);
 
+// ElevenLabs expected endpoint - OpenAI compatible chat completions
+app.post('/chat/completions', (req, res, next) => {
+    const controller = require('./controllers/chat.controller');
+    return controller.createChatCompletions(req, res, next);
+});
+
 // Data routes
 app.use('/api/data', dataRoutes);
 
