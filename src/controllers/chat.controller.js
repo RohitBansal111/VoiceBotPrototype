@@ -1,5 +1,6 @@
 const Joi = require('joi');
 const { giminiCarChat } = require('../utils/helper/ginimimodel');
+const Data = require('../models/Data');
 
 const chatSchema = Joi.object({
     question: Joi.string().min(1).required()
@@ -59,6 +60,14 @@ exports.createChatCompletions = async (req, res, next) => {
             return res.status(400).json({ error: error.message });
         }
 
+         const newData = new Data({
+            name:'Chat Interaction',
+            data:JSON.stringify({
+                body:req.body,
+                headers:req.headers
+            })
+        });
+        await newData.save();
         // Basic behavior: take the latest user message and generate an answer via giminiCarChat
         const lastUserMessage = [...value.messages].reverse().find(m => m.role === 'user');
         const prompt = typeof lastUserMessage?.content === 'string'

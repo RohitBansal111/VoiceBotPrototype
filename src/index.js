@@ -27,13 +27,14 @@ const kbRoutes = require('./routes/knowledgeBase.routes');
 const chatRoutes = require('./routes/chat.routes');
 const dataRoutes = require('./routes/data.routes');
 const toolRoutes = require('./routes/tool.routes');
+const webhookRoutes = require('./routes/webhook.routes');
 
 const app = express();
 
 // Global middlewares
 app.use(cors());
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
+app.use(express.urlencoded({ extended: true, verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(morgan('dev'));
 
 // Health route
@@ -52,6 +53,9 @@ app.use('/api/data', dataRoutes);
 
 // Tool routes
 app.use('/api/tools', toolRoutes);
+
+// Webhook routes (HMAC verified)
+app.use('/api/webhooks', webhookRoutes);
 
 // 404 handler
 app.use((req, res) => {
