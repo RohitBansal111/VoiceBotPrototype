@@ -4,8 +4,8 @@
   "description": "Express API for ElevenLabs Knowledge Base management (create, update, get, delete).",
   "main": "src/app.js",
   "scripts": {
-    "start": "node src/app.js",
-    "dev": "nodemon src/app.js"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
   },
   "keywords": [
     "express",
@@ -22,10 +22,11 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "joi": "^17.13.3",
+    "mongoose": "^8.17.2",
     "morgan": "^1.10.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "nodemon": "^3.1.10"
   },
   "engines": {
     "node": ">=18"

@@ -20,8 +20,12 @@ const dotenv = require('dotenv');
 // Load env first
 dotenv.config();
 
+// Import database connection
+const connectDB = require('./config/database');
+
 const kbRoutes = require('./routes/knowledgeBase.routes');
 const chatRoutes = require('./routes/chat.routes');
+const dataRoutes = require('./routes/data.routes');
 
 const app = express();
 
@@ -42,6 +46,9 @@ app.use('/api/knowledge-base', kbRoutes);
 // Chat routes
 app.use('/api/chat', chatRoutes);
 
+// Data routes
+app.use('/api/data', dataRoutes);
+
 // 404 handler
 app.use((req, res) => {
     res.status(404).json({ error: 'Not Found', path: req.path });
@@ -55,10 +62,22 @@ app.use((err, _req, res, _next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    // eslint-disable-next-line no-console
-    console.log(`Server listening on http://localhost:${PORT}`);
-});
+
+// Connect to MongoDB before starting the server
+const startServer = async () => {
+    try {
+        await connectDB();
+        app.listen(PORT, () => {
+            // eslint-disable-next-line no-console
+            console.log(`Server listening on http://localhost:${PORT}`);
+        });
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
+};
+
+startServer();
 
 module.exports = app;
 
