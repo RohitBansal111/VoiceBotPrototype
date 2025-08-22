@@ -8,7 +8,6 @@ const dataSchema = new mongoose.Schema({
     },
     data: {
         type: String,
-        required: true,
         trim: true
     }
 }, {
