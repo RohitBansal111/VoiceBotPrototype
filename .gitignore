@@ -1,0 +1,17 @@
+node_modules/
+.env
+package-lock.json
+venv/
+__pycache__/
+logs
+launch.json
+settings.json
+.idea/
+CLAUDE.md
+.CLAUDE.md/
+backups/
+.restore/
+restore-backup.js
+restore-backup-advanced.js
+restore.sh
+.env.paddle.example

@@ -1,0 +1,26 @@
+meta {
+  name: Create knowledegbase
+  type: http
+  seq: 1
+}
+
+post {
+  url: https://api.elevenlabs.io/v1/convai/knowledge-base/text
+  body: json
+  auth: inherit
+}
+
+headers {
+  xi-api-key: sk_ceaf831240cf223eeca2ce1e8643423d40d6bc63fe3cbcfc
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "text": ""
+  }
+}
+
+settings {
+  encodeUrl: false
+}

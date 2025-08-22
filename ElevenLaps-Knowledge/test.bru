@@ -1,0 +1,28 @@
+meta {
+  name: test
+  type: http
+  seq: 2
+}
+
+post {
+  url: https://api.elevenlabs.io/v1/convai/knowledge-base
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  xi-api-key: YOUR_XI_API_KEY
+}
+
+body:json {
+  {
+    "type": "text",
+    "name": "Test Data",
+    "text": "Hi Bot"
+  }
+}
+
+settings {
+  encodeUrl: false
+}
