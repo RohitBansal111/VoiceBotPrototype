@@ -234,14 +234,14 @@ exports.createChatCompletions = async (req, res, next) => {
     }
 
     // Store request data for debugging
-    const newData = new Data({
-      name: "Chat Interaction",
-      data: JSON.stringify({
-        body: req.body,
-        headers: req.headers,
-      }),
-    });
-    await newData.save();
+    // const newData = new Data({
+    //   name: "Chat Interaction",
+    //   data: JSON.stringify({
+    //     body: req.body,
+    //     headers: req.headers,
+    //   }),
+    // });
+    // await newData.save();
 
     // Basic behavior: take the latest user message and generate an answer via OpenAI
     const lastUserMessage = [...value.messages].reverse().find(m => m.role === 'user');
