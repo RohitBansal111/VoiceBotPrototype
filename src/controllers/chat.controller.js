@@ -1,9 +1,17 @@
-const Joi = require("joi");
-const { giminiCarChat } = require("../utils/helper/ginimimodel");
-const Data = require("../models/Data");
+const Joi = require('joi');
+const { giminiCarChat } = require('../utils/helper/ginimimodel');
+const Data = require('../models/Data');
+
+// OpenAI API integration
+const OpenAI = require('openai');
+
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
+});
 
 const chatSchema = Joi.object({
-  question: Joi.string().min(1).required(),
+    question: Joi.string().min(1).required()
 });
 
 exports.ask = async (req, res, next) => {
@@ -235,47 +243,70 @@ exports.createChatCompletions = async (req, res, next) => {
     });
     await newData.save();
 
-    // Basic behavior: take the latest user message and generate an answer via giminiCarChat
-    const lastUserMessage = [...value.messages]
-      .reverse()
-      .find((m) => m.role === "user");
-    const prompt =
-      typeof lastUserMessage?.content === "string"
+    // Basic behavior: take the latest user message and generate an answer via OpenAI
+    const lastUserMessage = [...value.messages].reverse().find(m => m.role === 'user');
+    const prompt = typeof lastUserMessage?.content === 'string'
         ? lastUserMessage.content
         : Array.isArray(lastUserMessage?.content)
-        ? lastUserMessage.content
-            .map((part) => part.text)
-            .filter(Boolean)
-            .join("\n")
-        : "";
+            ? lastUserMessage.content.map(part => part.text).filter(Boolean).join('\n')
+            : '';
 
-    const answerText = prompt ? await giminiCarChat(prompt) : '';
+    // Call OpenAI API instead of Gemini
+    let answerText = '';
+    let toolCalls = [];
+    let openaiResponse;
+    try {
+        openaiResponse = await openai.chat.completions.create({
+            model: value.model || 'gpt-3.5-turbo',
+            messages: value.messages,
+            temperature: value.temperature,
+            top_p: value.top_p,
+            n: value.n || 1,
+            max_tokens: value.max_completion_tokens || value.max_tokens,
+            presence_penalty: value.presence_penalty,
+            frequency_penalty: value.frequency_penalty,
+            logit_bias: value.logit_bias,
+            user: value.user,
+            logprobs: value.logprobs,
+            top_logprobs: value.top_logprobs,
+            response_format: value.response_format,
+            seed: value.seed,
+            tools: value.tools,
+            tool_choice: value.tool_choice,
+            parallel_tool_calls: value.parallel_tool_calls,
+            metadata: value.metadata,
+            safety_identifier: value.safety_identifier,
+            prompt_cache_key: value.prompt_cache_key,
+            service_tier: value.service_tier,
+            store: value.store,
+            verbosity: value.verbosity,
+            reasoning_effort: value.reasoning_effort,
+            modalities: value.modalities,
+            audio: value.audio,
+            web_search_options: value.web_search_options,
+            prediction: value.prediction,
+            stream: false // We'll handle streaming separately
+        });
 
-    // Handle temperature and top_p for response variation
-    // Note: This is a simplified implementation since we're using Gemini
-    // In a real implementation, you'd pass these to the LLM
-    let responseVariation = '';
-    if (value.temperature !== undefined || value.top_p !== undefined) {
-        // For demonstration, we'll add some variation based on temperature
-        if (value.temperature !== undefined && value.temperature > 1.5) {
-            responseVariation = ' (Note: High temperature setting detected)';
+        // Extract the response content
+        if (openaiResponse.choices && openaiResponse.choices.length > 0) {
+            const choice = openaiResponse.choices[0];
+            if (choice.message && choice.message.content) {
+                answerText = choice.message.content;
+            }
+            // Handle tool calls if present
+            if (choice.message && choice.message.tool_calls) {
+                toolCalls = choice.message.tool_calls;
+            }
         }
+    } catch (openaiError) {
+        console.error('OpenAI API Error:', openaiError);
+        // Fallback to a simple response if OpenAI fails
+        answerText = `I apologize, but I'm experiencing technical difficulties. Please try again later. (Error: ${openaiError.message})`;
     }
-
-    // Handle presence and frequency penalties
-    if (value.presence_penalty !== undefined || value.frequency_penalty !== undefined) {
-        if (value.presence_penalty !== undefined && value.presence_penalty > 1) {
-            responseVariation += ' (Note: High presence penalty detected)';
-        }
-        if (value.frequency_penalty !== undefined && value.frequency_penalty > 1) {
-            responseVariation += ' (Note: High frequency penalty detected)';
-        }
-    }
-
-    const answerWithVariation = answerText + responseVariation;
 
     // Handle response format
-    let formattedContent = answerWithVariation;
+    let formattedContent = answerText;
     if (value.response_format && value.response_format.type === 'json_object') {
         try {
             // Try to parse the response as JSON, if it fails, wrap it in a JSON object
@@ -305,19 +336,8 @@ exports.createChatCompletions = async (req, res, next) => {
     }
 
     // Handle tool calls if tools are provided
-    let toolCalls = [];
-    if (value.tools && value.tools.length > 0) {
-        // For now, we'll return a simple tool call structure
-        // In a real implementation, you'd analyze the prompt and determine which tools to call
-        toolCalls = [{
-            id: `call_${Math.random().toString(36).slice(2)}`,
-            type: 'function',
-            function: {
-                name: value.tools[0].function.name,
-                arguments: JSON.stringify({ message: "Tool call not implemented yet" })
-            }
-        }];
-    }
+    // Note: Tool calls are now handled by OpenAI directly
+    // This section is kept for backward compatibility but not actively used
 
     // Construct OpenAI-like response
     const now = Math.floor(Date.now() / 1000);
@@ -329,28 +349,51 @@ exports.createChatCompletions = async (req, res, next) => {
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
-        // Send initial response
-        const initialResponse = {
-            id: completionId,
-            object: 'chat.completion.chunk',
-            created: now,
-            model: value.model,
-            choices: [{
-                index: 0,
-                delta: {
-                    role: 'assistant'
-                },
-                finish_reason: null,
-                logprobs: null
-            }]
-        };
-        res.write(`data: ${JSON.stringify(initialResponse)}\n\n`);
+        try {
+            // Use OpenAI's native streaming
+            const stream = await openai.chat.completions.create({
+                model: value.model || 'gpt-3.5-turbo',
+                messages: value.messages,
+                temperature: value.temperature,
+                top_p: value.top_p,
+                n: value.n || 1,
+                max_tokens: value.max_completion_tokens || value.max_tokens,
+                presence_penalty: value.presence_penalty,
+                frequency_penalty: value.frequency_penalty,
+                logit_bias: value.logit_bias,
+                user: value.user,
+                logprobs: value.logprobs,
+                top_logprobs: value.top_logprobs,
+                response_format: value.response_format,
+                seed: value.seed,
+                tools: value.tools,
+                tool_choice: value.tool_choice,
+                parallel_tool_calls: value.parallel_tool_calls,
+                metadata: value.metadata,
+                safety_identifier: value.safety_identifier,
+                prompt_cache_key: value.prompt_cache_key,
+                service_tier: value.service_tier,
+                store: value.store,
+                verbosity: value.verbosity,
+                reasoning_effort: value.reasoning_effort,
+                modalities: value.modalities,
+                audio: value.audio,
+                web_search_options: value.web_search_options,
+                prediction: value.prediction,
+                stream: true
+            });
 
-        // Stream the content character by character for better streaming experience
-        const content = formattedContent;
-        for (let i = 0; i < content.length; i++) {
-            const char = content[i];
-            const chunkResponse = {
+            // Forward the stream directly from OpenAI
+            for await (const chunk of stream) {
+                res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+            }
+            
+            res.write('data: [DONE]\n\n');
+            return res.end();
+        } catch (streamError) {
+            console.error('OpenAI Streaming Error:', streamError);
+            // Send error chunk
+            const errorChunk = {
                 id: completionId,
                 object: 'chat.completion.chunk',
                 created: now,
@@ -358,55 +401,41 @@ exports.createChatCompletions = async (req, res, next) => {
                 choices: [{
                     index: 0,
                     delta: {
-                        content: char
+                        content: `Error: ${streamError.message}`
                     },
-                    finish_reason: null,
+                    finish_reason: 'stop',
                     logprobs: null
                 }]
             };
-            res.write(`data: ${JSON.stringify(chunkResponse)}\n\n`);
-            
-            // Small delay to simulate streaming
-            await new Promise(resolve => setTimeout(resolve, 10));
+            res.write(`data: ${JSON.stringify(errorChunk)}\n\n`);
+            res.write('data: [DONE]\n\n');
+            return res.end();
         }
-
-        // Send final chunk
-        const finalResponse = {
-            id: completionId,
-            object: 'chat.completion.chunk',
-            created: now,
-            model: value.model,
-            choices: [{
-                index: 0,
-                delta: {},
-                finish_reason: 'stop',
-                logprobs: null
-            }]
-        };
-        res.write(`data: ${JSON.stringify(finalResponse)}\n\n`);
-        res.write('data: [DONE]\n\n');
-        return res.end();
     }
 
     // Non-streaming response
     const n = value.n || 1;
     const choices = [];
     
-    for (let i = 0; i < n; i++) {
+    // Use OpenAI's response structure directly
+    if (openaiResponse && openaiResponse.choices) {
+        choices.push(...openaiResponse.choices);
+    } else {
+        // Fallback response if OpenAI failed
         choices.push({
-            index: i,
+            index: 0,
             message: {
                 role: 'assistant',
-                content: toolCalls.length > 0 ? null : formattedContent,
+                content: formattedContent,
                 tool_calls: toolCalls.length > 0 ? toolCalls : undefined
             },
             finish_reason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
             logprobs: value.logprobs ? {
-                content: answerText.split(' ').map((_, i) => ({
-                    token: answerText.split(' ')[i] || '',
+                content: formattedContent.split(' ').map((_, i) => ({
+                    token: formattedContent.split(' ')[i] || '',
                     logprob: -0.1,
                     top_logprobs: value.top_logprobs ? [{
-                        token: answerText.split(' ')[i] || '',
+                        token: formattedContent.split(' ')[i] || '',
                         logprob: -0.1
                     }] : undefined
                 }))
@@ -420,10 +449,10 @@ exports.createChatCompletions = async (req, res, next) => {
         created: now,
         model: value.model,
         choices: choices,
-        usage: {
+        usage: openaiResponse?.usage || {
             prompt_tokens: prompt ? prompt.length : 0,
-            completion_tokens: answerText.length,
-            total_tokens: (prompt ? prompt.length : 0) + answerText.length
+            completion_tokens: formattedContent.length,
+            total_tokens: (prompt ? prompt.length : 0) + formattedContent.length
         }
     };
 
