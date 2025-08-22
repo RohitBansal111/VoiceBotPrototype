@@ -90,6 +90,25 @@ exports.postCallElavenLabsWebhook = async (req, res, next) => {
     .json({ message: "Webhook pre-call data saved successfully" });
 };
 
+
+exports.postCallOutElavenLabsWebhook = async (req, res, next) => {
+  const newData = new Data({
+    name: "Post-out-Call Interaction",
+    data: JSON.stringify({
+      method: req.method, // capture request method (GET/POST/etc)
+      query: req.query, // capture query params (for GET)
+      body: req.body, // capture body (for POST)
+      headers: req.headers, // ca
+    }),
+  });
+  await newData.save();
+
+  return res
+    .status(200)
+    .json({ message: "Webhook pre-call data saved successfully" });
+};
+
+
 exports.toolCallElavenLabsWebhook = async (req, res, next) => {
   const newData = new Data({
     name: "Tool Interaction",
