@@ -6,6 +6,9 @@ const router = express.Router();
 // Ask a question to the car-only chat model
 router.post('/', controller.ask);
 
+// OpenAI-compatible Create Chat Completions endpoint
+router.post('/v1/chat/completions', controller.createChatCompletions);
+
 module.exports = router;
 
 
