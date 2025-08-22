@@ -26,6 +26,7 @@ const connectDB = require('./config/database');
 const kbRoutes = require('./routes/knowledgeBase.routes');
 const chatRoutes = require('./routes/chat.routes');
 const dataRoutes = require('./routes/data.routes');
+const toolRoutes = require('./routes/tool.routes');
 
 const app = express();
 
@@ -48,6 +49,9 @@ app.use('/api/chat', chatRoutes);
 
 // Data routes
 app.use('/api/data', dataRoutes);
+
+// Tool routes
+app.use('/api/tools', toolRoutes);
 
 // 404 handler
 app.use((req, res) => {
