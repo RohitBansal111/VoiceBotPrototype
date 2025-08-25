@@ -103,6 +103,14 @@ exports.createChatCompletions = async (req, res, next) => {
         const errorChunk = {
           error: "Internal error occurred!",
         };
+
+        const newData = new Data({
+          name: "Chat Interaction Error",
+          data: JSON.stringify({
+            body: JSON.stringify(errorChunk),
+          }),
+        });
+        await newData.save();
         res.write(`data: ${JSON.stringify(errorChunk)}\n\n`);
         return res.end();
       }
